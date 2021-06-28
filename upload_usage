@@ -1,0 +1,84 @@
+#!/cephfs/covid/bham/wilkisaj/.conda/envs/std/bin/python
+
+import os
+import sys
+import pandas as pd
+import numpy as np
+import glob
+import humanize
+import argparse
+import math
+from rich.console import Console
+from rich.table import Table
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-t", "--threshold", help="Minimum directory size to return (in gigabtyes e.g. 100)", type=int, metavar=)
+parser.add_argument("-w", "--worst_offenders", help="Display only the top n users", type=int)
+parser.add_argument("-c", "--colour_thresholds", help="Set the colour thresholds in gigabtyes, e.g. 5000,1000,500")
+args = parser.parse_args()
+
+if args.colour_thresholds:
+	colour_split = args.colour_thresholds.split(",")
+	red = int(colour_split[0])
+	orange = int(colour_split[1])
+	yellow = int(colour_split[2])
+else:
+	red = 5000
+	orange = 1000
+	yellow = 500
+
+colour_thresholds = {"red":red*1000000000, "orange":orange*1000000000,"yellow":yellow*1000000000}
+
+def get_user_usage_df():
+	directories = glob.glob('/cephfs/covid/bham/*/upload/', recursive=False)
+
+	usage = [[], [], [], []]
+
+	for path in directories:
+		usage[0].append(path.split("/")[4])
+		steam = os.popen('getfattr -d  --absolute-names --only-values --m ceph.dir.rbytes %s' %(path))
+		bytes = steam.read()
+		usage[1].append(bytes)
+		usage[2].append(humanize.naturalsize(bytes))
+		if int(bytes) >= colour_thresholds["red"]:
+			usage[3].append("bold red")
+		elif int(bytes) >= colour_thresholds["orange"]:
+			usage[3].append("red")
+		elif int(bytes) >= colour_thresholds["yellow"]:
+			usage[3].append("yellow")
+		else:
+			usage[3].append("green")
+
+	stacked = np.column_stack(usage)
+	df = pd.DataFrame(stacked, columns=["User", "Usage_bytes", "Usage_readable", "Colour"])
+	df["Usage_bytes"] = pd.to_numeric(df["Usage_bytes"])
+	df.sort_values(by="Usage_bytes", ascending=False, inplace=True)
+	df = df.loc[df["Usage_bytes"] != 0]
+	return df
+
+def print_results(df):
+	console = Console()
+	table = Table(show_header=True, header_style="bold")
+	table.add_column("User", width=35)
+	table.add_column("Usage", style="bright", justify="right")
+	for index, row in df.iterrows():
+		readable = row["Usage_readable"].split(" ")
+		readable[0] = math.ceil(float(readable[0]))		
+		table.add_row(row["User"], str(readable[0]) + " " + readable[1], style=row["Colour"])
+	console.print(table)
+
+if args.threshold:
+	threshold = args.threshold * 1000000000
+	df = get_user_usage_df()
+	df = df.loc[df["Usage_bytes"] >= threshold]
+	print_results(df)
+	exit()
+
+if args.worst_offenders:
+	worst_offenders = args.worst_offenders
+	df = get_user_usage_df()
+	df = df.head(worst_offenders)
+	print_results(df)
+	exit()
+
+print_results(get_user_usage_df())
