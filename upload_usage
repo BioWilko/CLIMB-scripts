@@ -12,9 +12,9 @@ from rich.console import Console
 from rich.table import Table
 
 parser = argparse.ArgumentParser()
-parser.add_argument("-t", "--threshold", help="Minimum directory size to return (in gigabtyes e.g. 100)", type=int, metavar=)
-parser.add_argument("-w", "--worst_offenders", help="Display only the top n users", type=int)
-parser.add_argument("-c", "--colour_thresholds", help="Set the colour thresholds in gigabtyes, e.g. 5000,1000,500")
+parser.add_argument("-t", "--threshold", help="Minimum directory size to return (in gigabtyes e.g. 100)", type=int, metavar="")
+parser.add_argument("-w", "--worst_offenders", help="Display only the top n users", type=int, metavar="")
+parser.add_argument("-c", "--colour_thresholds", help="Set the colour thresholds in gigabtyes", metavar="5000,1000,500")
 args = parser.parse_args()
 
 if args.colour_thresholds:
